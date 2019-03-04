@@ -2,10 +2,10 @@ namespace CoreReactRedux.Dtos
 {
     public class UserDto
     {
-        public string Id { get; set; }
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
-        public string Username { get; set; }
-        public string Password { get; set; }
+        public string id { get; set; }
+        public string firstName { get; set; }
+        public string lastName { get; set; }
+        public string username { get; set; }
+        public string password { get; set; }
     }
 }

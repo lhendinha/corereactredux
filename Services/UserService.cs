@@ -6,6 +6,7 @@ using CoreReactRedux.Models;
 using Microsoft.Extensions.Configuration;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.IdGenerators;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 
@@ -32,8 +33,7 @@ namespace CoreReactRedux.Services
                 BsonClassMap.RegisterClassMap<User>(cm =>
                 {
                     cm.AutoMap();
-                    cm.MapIdMember(c => c.Id);
-                    cm.IdMemberMap.SetSerializer(new StringSerializer(BsonType.ObjectId));
+                    cm.MapIdMember(c => c.id).SetIdGenerator(StringObjectIdGenerator.Instance);
                 });
             }
         }
@@ -54,14 +54,14 @@ namespace CoreReactRedux.Services
                 return null;
 
             //var user = _context.Users.SingleOrDefault(x => x.Username == username);
-            var user = _users.Find<User>(x => x.Username == username).FirstOrDefault();
+            var user = _users.Find<User>(x => x.username == username).FirstOrDefault();
 
             // check if username exists
             if (user == null)
                 return null;
 
             // check if password is correct
-            if (!VerifyPasswordHash(password, user.PasswordHash, user.PasswordSalt))
+            if (!VerifyPasswordHash(password, user.passwordHash, user.passwordSalt))
                 return null;
 
             // authentication successful
@@ -77,7 +77,7 @@ namespace CoreReactRedux.Services
         public User GetById(string id)
         {
             //return _context.Users.Find(id);
-            return _users.Find<User>(x => x.Id == id).FirstOrDefault();
+            return _users.Find<User>(x => x.id == id).FirstOrDefault();
         }
 
         public User Create(User user, string password)
@@ -87,15 +87,14 @@ namespace CoreReactRedux.Services
                 throw new AppException("Password is required");
 
             //if (_context.Users.Any(x => x.Username == user.Username))
-            //if (_users.Count(x => x.Username == user.Username) > 0)
-            if (_users.Find<User>(x => x.Username == user.Username).Any())
+            if (_users.Find<User>(x => x.username == user.username).Any())
                 throw new AppException("This username is already taken");
 
             byte[] passwordHash, passwordSalt;
             CreatePasswordHash(password, out passwordHash, out passwordSalt);
 
-            user.PasswordHash = passwordHash;
-            user.PasswordSalt = passwordSalt;
+            user.passwordHash = passwordHash;
+            user.passwordSalt = passwordSalt;
 
             //_context.Users.Add(user);
             //_context.SaveChanges();
@@ -108,22 +107,22 @@ namespace CoreReactRedux.Services
         {
             //var user = _context.Users.Find(userParam.Id);
             //var user = _users.Find<User>(x => x.Id == userParam.Id);
-            var user = _users.Find<User>(x => x.Id == userParam.Id).FirstOrDefault();
+            var user = _users.Find<User>(x => x.id == userParam.id).FirstOrDefault();
 
             if (user == null)
                 throw new AppException("User not found");
 
-            if (userParam.Username != user.Username)
+            if (userParam.username != user.username)
             {
                 // username has changed so check if the new username is already taken
                 //if (_context.Users.Any(x => x.Username == userParam.Username))
-                throw new AppException("Username " + userParam.Username + " is already taken");
+                throw new AppException("Username " + userParam.username + " is already taken");
             }
 
             // update user properties
-            user.FirstName = userParam.FirstName;
-            user.LastName = userParam.LastName;
-            user.Username = userParam.Username;
+            user.firstName = userParam.firstName;
+            user.lastName = userParam.lastName;
+            user.username = userParam.username;
 
             // update password if it was entered
             if (!string.IsNullOrWhiteSpace(password))
@@ -131,22 +130,22 @@ namespace CoreReactRedux.Services
                 byte[] passwordHash, passwordSalt;
                 CreatePasswordHash(password, out passwordHash, out passwordSalt);
 
-                user.PasswordHash = passwordHash;
-                user.PasswordSalt = passwordSalt;
+                user.passwordHash = passwordHash;
+                user.passwordSalt = passwordSalt;
             }
 
-            _users.ReplaceOne(x => x.Id == userParam.Id, user);
+            _users.ReplaceOne(x => x.id == userParam.id, user);
         }
 
         public void Delete(string id)
         {
             //var user = _context.Users.Find(id);
-            var user = _users.Find<User>(x => x.Id == id).FirstOrDefault();
+            var user = _users.Find<User>(x => x.id == id).FirstOrDefault();
             if (user != null)
             {
                 //_context.Users.Remove(user);
                 //_context.SaveChanges();
-                _users.DeleteOne(x => x.Id == id);
+                _users.DeleteOne(x => x.id == id);
             }
         }
 
