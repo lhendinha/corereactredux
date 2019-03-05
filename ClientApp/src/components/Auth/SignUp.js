@@ -5,6 +5,7 @@ import { bindActionCreators } from "redux";
 import { connect } from "react-redux";
 import axios from "axios";
 import Alert from "react-s-alert";
+import validator from "react-validation";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 import { actionCreators } from "../../store/Login";
@@ -27,12 +28,107 @@ class SignUp extends Component {
     );
   };
 
-  setUserCache = async (user, token) => {
+  validationForm = () => {
+    const {
+      email,
+      password,
+      firstName,
+      lastName,
+      username,
+      confirmPassword
+    } = this.props;
     try {
-      localStorage.setItem("myApp:user", JSON.stringify(user));
-      localStorage.setItem("myApp:token", token);
+      if (!email) {
+        Alert.error("Please, enter with your email !", {
+          position: "bottom-left",
+          effect: "slide",
+          timeout: "none"
+        });
+        return false;
+      } else if (!validator.isEmail(email)) {
+        Alert.error("Please, enter with a valid email !", {
+          position: "bottom-left",
+          effect: "slide",
+          timeout: "none"
+        });
+        return false;
+      }
+
+      if (!username) {
+        Alert.error("Please, enter with your username !", {
+          position: "bottom-left",
+          effect: "slide",
+          timeout: "none"
+        });
+        return false;
+      } else if (username.length < 3) {
+        Alert.error("Please, enter with a bigger username !", {
+          position: "bottom-left",
+          effect: "slide",
+          timeout: "none"
+        });
+        return false;
+      }
+
+      if (!firstName) {
+        Alert.error("Please, enter with your first name !", {
+          position: "bottom-left",
+          effect: "slide",
+          timeout: "none"
+        });
+        return false;
+      } else if (firstName.length < 3) {
+        Alert.error("Please, enter with your complete first name !", {
+          position: "bottom-left",
+          effect: "slide",
+          timeout: "none"
+        });
+        return false;
+      }
+
+      if (!lastName) {
+        Alert.error("Please, enter with your last name !", {
+          position: "bottom-left",
+          effect: "slide",
+          timeout: "none"
+        });
+        return false;
+      } else if (lastName.length < 3) {
+        Alert.error("Please, enter with your complete last name !", {
+          position: "bottom-left",
+          effect: "slide",
+          timeout: "none"
+        });
+        return false;
+      }
+
+      if (!password) {
+        Alert.error("Please, enter with your password !", {
+          position: "bottom-left",
+          effect: "slide",
+          timeout: "none"
+        });
+        return false;
+      } else if (password.length < 3) {
+        Alert.error("Please, enter with a bigger password !", {
+          position: "bottom-left",
+          effect: "slide",
+          timeout: "none"
+        });
+        return false;
+      }
+
+      if (password != confirmPassword) {
+        Alert.error("The passwords don't match !", {
+          position: "bottom-left",
+          effect: "slide",
+          timeout: "none"
+        });
+        return false;
+      }
     } catch (error) {
-      Alert.error("Something went wrong, please try again !", {
+      console.log(error);
+      return Alert.error("Something went wrong, please try again !", {
         position: "bottom-left",
         effect: "slide",
         timeout: "none"
@@ -40,33 +136,45 @@ class SignUp extends Component {
     }
   };
 
-  signIn = async () => {
-    const { email, password, location, history, setUser } = this.props;
+  signUp = async () => {
+    const {
+      email,
+      password,
+      firstName,
+      lastName,
+      username,
+      history
+    } = this.props;
+
+    const formValidated = this.validationForm();
+    if (formValidated === false) {
+      return;
+    }
 
     try {
       this.setState({ loading: true });
 
-      const response = await axios.post("api/Users/authenticate", {
-        username: email,
-        password: password
+      const response = await axios.post("api/Users/register", {
+        firstName,
+        lastName,
+        email,
+        username,
+        password
       });
 
-      const { user, token } = response.data;
+      const { user } = response.data;
 
-      this.setUserCache(user, token);
-      setUser(user);
+      Alert.success("Something went wrong, please try again !", {
+        position: "bottom-left",
+        effect: "slide",
+        timeout: "none"
+      });
 
-      this.setState({ loading: false });
-
-      if (location.state.previusPage) {
-        return history.push(location.state.previusPage);
-      } else {
-        return history.push("/user");
-      }
+      return history.push("/login");
     } catch (error) {
       console.log(error);
       this.setState({ loading: false });
-      Alert.error("Something went wrong, please try again !", {
+      return Alert.error("Something went wrong, please try again !", {
         position: "bottom-left",
         effect: "slide",
         timeout: "none"
@@ -202,7 +310,7 @@ class SignUp extends Component {
           </FormGroup>
           <FormGroup check row>
             <Col sm={{ size: 10, offset: 6 }}>
-              <Button onClick={() => this.signIn()}>Submit</Button>
+              <Button onClick={() => this.signUp()}>Submit</Button>
             </Col>
           </FormGroup>
         </Form>

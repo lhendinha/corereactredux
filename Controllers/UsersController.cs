@@ -12,162 +12,163 @@ using Microsoft.AspNetCore.Authorization;
 using CoreReactRedux.Services;
 using CoreReactRedux.Dtos;
 using CoreReactRedux.Models;
+using System.Threading.Tasks;
 
 namespace WebApi.Controllers
 {
-  [Authorize]
-  [ApiController]
-  //[Route("[controller]")]
-  [Route("api/[controller]")]
-  public class UsersController : ControllerBase
-  {
-    private IUserService _userService;
-    private IMapper _mapper;
-    private readonly AppSettings _appSettings;
-
-    public UsersController(
-        IUserService userService,
-        IMapper mapper,
-        IOptions<AppSettings> appSettings)
+    [Authorize]
+    [ApiController]
+    [Route("api/[controller]")]
+    public class UsersController : ControllerBase
     {
-      _userService = userService;
-      _mapper = mapper;
-      _appSettings = appSettings.Value;
-    }
+        private IUserService _userService;
+        private IMapper _mapper;
+        private readonly AppSettings _appSettings;
 
-    [AllowAnonymous]
-    [HttpPost("authenticate")]
-    public IActionResult Authenticate([FromBody]UserDto userDto)
-    {
-      var user = _userService.Authenticate(userDto.username, userDto.password);
+        public UsersController(
+            IUserService userService,
+            IMapper mapper,
+            IOptions<AppSettings> appSettings)
+        {
+            _userService = userService;
+            _mapper = mapper;
+            _appSettings = appSettings.Value;
+        }
 
-      if (user == null)
-        return BadRequest(new { message = "Username or password is incorrect" });
+        [AllowAnonymous]
+        [HttpPost("authenticate")]
+        public async Task<IActionResult> Authenticate([FromBody]UserDto userDto)
+        {
+            var user = await _userService.Authenticate(userDto.username, userDto.password);
 
-      var tokenHandler = new JwtSecurityTokenHandler();
+            if (user == null)
+                return BadRequest(new { message = "Username or password is incorrect" });
 
-      var key = Encoding.ASCII.GetBytes(_appSettings.Secret);
+            var tokenHandler = new JwtSecurityTokenHandler();
 
-      var tokenDescriptor = new SecurityTokenDescriptor
-      {
-        Subject = new ClaimsIdentity(new Claim[]
-          {
+            var key = Encoding.ASCII.GetBytes(_appSettings.Secret);
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new Claim[]
+                {
                     new Claim(ClaimTypes.Name, user.id.ToString())
-          }),
-        Expires = DateTime.UtcNow.AddDays(7),
-        SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-      };
+                }),
+                Expires = DateTime.UtcNow.AddDays(7),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
 
-      var token = tokenHandler.CreateToken(tokenDescriptor);
+            var token = tokenHandler.CreateToken(tokenDescriptor);
 
-      var tokenString = tokenHandler.WriteToken(token);
+            var tokenString = tokenHandler.WriteToken(token);
 
-      // return basic user info (without password) and token to store client side
-      return Ok(new
-      {
-        user = new
+            // return basic user info (without password) and token to store client side
+            return Ok(new
+            {
+                user = new
+                {
+                    Id = user.id,
+                    Username = user.username,
+                    FirstName = user.firstName,
+                    LastName = user.lastName,
+                },
+                token = tokenString
+            });
+        }
+
+        [AllowAnonymous]
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody]UserDto userDto)
         {
-          Id = user.id,
-          Username = user.username,
-          FirstName = user.firstName,
-          LastName = user.lastName,
-        },
-        token = tokenString
-      });
-    }
+            // map dto to entity
+            var user = _mapper.Map<User>(userDto);
 
-    [AllowAnonymous]
-    [HttpPost("register")]
-    public IActionResult Register([FromBody]UserDto userDto)
-    {
-      // map dto to entity
-      var user = _mapper.Map<User>(userDto);
+            try
+            {
+                // save 
+                await _userService.Create(user, userDto.password);
+                return Ok(new
+                {
+                    user = new
+                    {
+                        email = userDto.email,
+                        firstName = userDto.firstName,
+                        lastName = userDto.lastName,
+                        userName = userDto.username
+                    }
+                });
+            }
+            catch (AppException ex)
+            {
+                // return error message if there was an exception
+                System.Diagnostics.Debug.WriteLine("Exception: " + ex.Message);
+                return BadRequest(new { message = ex.Message });
+            }
+        }
 
-      try
-      {
-        // save 
-        _userService.Create(user, userDto.password);
-        return Ok(new
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
         {
-          user = new
-          {
-            firstName = userDto.firstName,
-            lastName = userDto.lastName,
-            userName = userDto.username
-          }
-        });
-      }
-      catch (AppException ex)
-      {
-        // return error message if there was an exception
-        System.Diagnostics.Debug.WriteLine("Exception: " + ex.Message);
-        return BadRequest(new { message = ex.Message });
-      }
-    }
+            try
+            {
+                var users = await _userService.GetAll();
+                //var userDtos = _mapper.Map<IList<UserDto>>(users);
+                return Ok(users);
+            }
+            catch (AppException ex)
+            {
+                // return error message if there was an exception
+                return BadRequest(new { message = ex.Message });
+            }
+        }
 
-    [HttpGet]
-    public IActionResult GetAll()
-    {
-      try
-      {
-        var users = _userService.GetAll();
-        var userDtos = _mapper.Map<IList<UserDto>>(users);
-        return Ok(userDtos);
-      }
-      catch (AppException ex)
-      {
-        // return error message if there was an exception
-        return BadRequest(new { message = ex.Message });
-      }
-    }
-
-    [AllowAnonymous]
-    [HttpGet("teste")]
-    public IActionResult teste()
-    {
-      return Ok();
-    }
-
-    [HttpGet("{id}")]
-    public IActionResult GetById(string id)
-    {
-      var user = _userService.GetById(id);
-
-      var userDto = _mapper.Map<UserDto>(user);
-      return Ok(userDto);
-    }
-
-    [HttpPut("{id}")]
-    public IActionResult Update(string id, [FromBody]UserDto userDto)
-    {
-      // map dto to entity and set id
-      var user = _mapper.Map<User>(userDto);
-      user.id = id;
-
-      try
-      {
-        // save 
-        _userService.Update(user, userDto.password);
-        return Ok(new
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(string id)
         {
-          mensagem = "Usuario alterado com sucesso !"
-        });
-      }
-      catch (AppException ex)
-      {
-        // return error message if there was an exception
-        return BadRequest(new { message = ex.Message });
-      }
-    }
+            var user = await _userService.GetById(id);
 
-    [HttpDelete("{id}")]
-    public IActionResult Delete(string id)
-    {
-      _userService.Delete(id);
-      return Ok(new
-      {
-        mensagem = "Usuario deletado com sucesso !"
-      });
+            var userDto = new
+            {
+                user.firstName,
+                user.lastName,
+                user.email,
+                user.username
+            };
+
+            return Ok(userDto);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(string id, [FromBody]UserDto userDto)
+        {
+            // map dto to entity and set id
+            var user = _mapper.Map<User>(userDto);
+            user.id = id;
+
+            try
+            {
+                // save 
+                await _userService.Update(user, userDto.password);
+                return Ok(new
+                {
+                    mensagem = "User was change with success !"
+                });
+            }
+            catch (AppException ex)
+            {
+                // return error message if there was an exception
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(string id)
+        {
+            await _userService.Delete(id);
+            return Ok(new
+            {
+                mensagem = "User was removed with success !"
+            });
+        }
     }
-  }
 }
